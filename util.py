@@ -1,6 +1,29 @@
 from __future__ import division
+from torch.autograd import Variable
+
+import cv2
 import numpy as np
 import torch
+
+
+def load_classes(namesfile):
+    fp = open(namesfile, "r")
+    names = fp.read().split("\n")[:-1]
+    return names
+
+
+def get_test_input_cv(input_dim, CUDA):
+    img = cv2.imread("dog-cycle-car.png")
+    img = cv2.resize(img, (input_dim, input_dim))
+    img_ = img[:, :, ::-1].transpose((2, 0, 1))
+    img_ = img_[np.newaxis, :, :, :] / 255.0
+    img_ = torch.from_numpy(img_).float()
+    img_ = Variable(img_)
+
+    if CUDA:
+        img_ = img_.cuda()
+
+    return img_
 
 
 def predict_transform(prediction, input_dim, anchors, num_classes, use_gpu=True):
@@ -102,7 +125,7 @@ def bbox_iou(box1, box2):
     return iou
 
 
-def write_results(prediction, confidence, num_classes, nms_conf=0.4):
+def write_results(prediction, confidence, num_classes, nms=True, nms_conf=0.4):
     # Object Confidence Thresholding
     conf_mask = (prediction[:, :, 4] > confidence).float().unsqueeze(2)
     prediction = prediction * conf_mask
@@ -116,59 +139,63 @@ def write_results(prediction, confidence, num_classes, nms_conf=0.4):
     prediction[:, :, 4] = box_corner[:, :, 4]
 
     batch_size = prediction.size(0)
-    write = false
+    output = prediction.new(1, prediction.size(2) + 1)
+    write = False
 
-    for idx in range(batch_size):
+    for ind in range(batch_size):
         # select the image from the batch
-        image_pred = prediction[idx]  # Image Tensor
-        max_conf, max_conf_score = torch.max(image_pred[:, 5 : 5 + num_classes], 1)
+        img_pred = prediction[ind]  # Image Tensor
+        max_conf, max_conf_score = torch.max(img_pred[:, 5 : 5 + num_classes], 1)
         max_conf = max_conf.float().unsqueeze(1)
-        seq = (image_pred[:, :5], max_conf, max_conf_score)
-        image_pred = torch.cat(seq, 1)
+        max_conf_score = max_conf_score.float().unsqueeze(1)
+        seq = (img_pred[:, :5], max_conf, max_conf_score)
+        img_pred = torch.cat(seq, 1)
 
         # Get rid of the zero entries
-        non_zero_ind = torch.nonzero((image_pred[:, 4]))
-        image_pred_ = image_pred[non_zero_idx.squeeze(), :].view(-1, 7)
+        non_zero_ind = torch.nonzero((img_pred[:, 4]))
+        img_pred_ = img_pred[non_zero_ind.squeeze(), :].view(-1, 7)
         try:
-            img_classes = unique(image_pred_[:, -1])
+            img_classes = unique(img_pred_[:, -1])
         except:
             continue
 
         for cls in img_classes:
             # get detections with one particular class
-            cls_mask = image_pred_ * (image_pred_[:, -1] == cls).float().unsqueeze(1)
+            cls_mask = img_pred_ * (img_pred_[:, -1] == cls).float().unsqueeze(1)
             class_mask_ind = torch.nonzero(cls_mask[:, -2]).unsqueeze()
 
-            image_pred_class = image_pred_[class_mask_ind].view(-1, 7)
+            img_pred_class = img_pred_[class_mask_ind].view(-1, 7)
 
             # sort the detections for maximum objectness confidence
-            conf_sort_index = torch.sort(image_pred_class[:, 4], descending=True)[1]
-            image_pred_class = image_pred_Class[conf_sort_index]
-            idx = image_pred_class.size(0)
+            conf_sort_index = torch.sort(img_pred_class[:, 4], descending=True)[1]
+            img_pred_class = img_pred_Class[conf_sort_index]
+            idx = img_pred_class.size(0)
 
             if nms:
                 # for each detection
                 for i in range(idx):
                     try:
-                        ious=bbox_iou(image_pred_class[i].unsqueeze(0),image_pred_class[i+1:])
+                        ious = bbox_iou(
+                            img_pred_class[i].unsqueeze(0), img_pred_class[i + 1 :]
+                        )
                     except ValueError:
                         break
                     except IndexError:
                         break
 
-                    iou_mask=(ious<nms_conf).float().unsqueeze(1)
-                    image_pred_class[i+1:]*=iou_mask
+                    iou_mask = (ious < nms_conf).float().unsqueeze(1)
+                    img_pred_class[i + 1 :] *= iou_mask
 
-                    non_zero_ind=torch.nonzero(image_pred_class[:,4]).squeeze()
-                    image_pred_class=image_pred_class[non_zero_ind].view(-1,7)
+                    non_zero_ind = torch.nonzero(img_pred_class[:, 4]).squeeze()
+                    img_pred_class = img_pred_class[non_zero_ind].view(-1, 7)
 
-            batch_ind=image_pred_class.new(image_pred_class.size(0),1).fill_(ind)
-            seq=batch_ind,image_pred_class
+            batch_ind = img_pred_class.new(img_pred_class.size(0), 1).fill_(ind)
+            seq = batch_ind, img_pred_class
             if not write:
-                output=torch.cat(seq,1)
-                write=True
+                output = torch.cat(seq, 1)
+                write = True
             else:
-                out=torch.cat(seq,1)
-                output=torch.cat((output,out))
+                out = torch.cat(seq, 1)
+                output = torch.cat((output, out))
 
     return output
