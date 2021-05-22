@@ -5,7 +5,6 @@ import cv2
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch.autograd import Variable
 
 
@@ -47,6 +46,15 @@ class DetectionLayer(nn.Module):
     def __init__(self, anchors):
         super(DetectionLayer, self).__init__()
         self.anchors = anchors
+
+    def forward(self, x, inp_dim, num_classes, confidence):
+        x = x.data
+        global CUDA
+        prediction = x
+        prediction = predict_transform(
+            prediction, inp_dim, self.anchors, num_classes, confidence, CUDA
+        )
+        return prediction
 
 
 def create_modules(blocks):
@@ -104,8 +112,8 @@ def create_modules(blocks):
 
         elif x["type"] == "upsample":  # Bilinear2d Upsampling
             stride = int(x["stride"])
-            upsample = nn.Upsample(scale_factor=2, mode="bilinear")
-            module.add_module(f"upsample_{index}", upsample)
+            upsample = nn.Upsample(scale_factor=2, mode="nearest")
+            module.add_module("upsample_{}".format(index), upsample)
 
         elif x["type"] == "route":  # route layer
             x["layers"] = x["layers"].split(",")
@@ -145,7 +153,7 @@ def create_modules(blocks):
         prev_filters = filters
         output_filters.append(filters)
 
-    return (net_info, module_list)
+    return net_info, module_list
 
 
 class Darknet(nn.Module):
@@ -153,6 +161,8 @@ class Darknet(nn.Module):
         super(Darknet, self).__init__()
         self.blocks = parse_cfg(cfgfile)
         self.net_info, self.module_list = create_modules(self.blocks)
+        self.header = torch.Tensor([0, 0, 0, 0])
+        self.seen = 0
 
     def forward(self, x, use_gpu):
         modules = self.blocks[1:]
@@ -218,12 +228,12 @@ class Darknet(nn.Module):
             if module_type == "convolutional":
                 model = self.module_list[i]
                 try:
-                    # batch_normalize = int(self.blocks[i + 1]["batch_normalize"])
                     batch_normalize = int(self.blocks[i + 1]["batch_normalize"])
                 except:
                     batch_normalize = 0
 
                 conv = model[0]
+
                 if batch_normalize:
                     bn = model[1]
                     num_bn_bias = bn.bias.numel()
@@ -257,11 +267,11 @@ class Darknet(nn.Module):
                     conv_bias = conv_bias.view_as(conv.bias.data)
                     conv.bias.data.copy_(conv_bias)
 
-                    num_weights = conv.weight.numel()
-                    conv_weights = torch.from_numpy(weights[ptr : ptr + num_weights])
-                    ptr += num_weights
-                    conv_weights = conv_weights.view_as(conv.weight.data)
-                    conv.weight.data.copy_(conv_weights)
+                num_weights = conv.weight.numel()
+                conv_weights = torch.from_numpy(weights[ptr : ptr + num_weights])
+                ptr += num_weights
+                conv_weights = conv_weights.view_as(conv.weight.data)
+                conv.weight.data.copy_(conv_weights)
 
 
 def get_test_input():
