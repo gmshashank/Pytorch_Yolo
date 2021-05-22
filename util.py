@@ -39,8 +39,9 @@ def load_classes(namesfile):
     return names
 
 
-def get_test_input_cv(input_dim, CUDA):
-    img = cv2.imread("dog-cycle-car.png")
+def get_test_input_cv(imglist, input_dim, CUDA):
+
+    img = cv2.imread(imglist[0])
     img = cv2.resize(img, (input_dim, input_dim))
     img_ = img[:, :, ::-1].transpose((2, 0, 1))
     img_ = img_[np.newaxis, :, :, :] / 255.0

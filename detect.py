@@ -158,7 +158,7 @@ if __name__ == "__main__":
 
     i = 0
     write = False
-    model(get_test_input_cv(inp_dim, CUDA), CUDA)
+    model(get_test_input_cv(imglist, inp_dim, CUDA), CUDA)
     start_det_loop = time.time()
     objs = {}
 
@@ -224,8 +224,12 @@ if __name__ == "__main__":
         output[:, 1:5] /= scaling_factor
 
         for i_val in range(output.shape[0]):
-            output[i_val, [1, 3]] = torch.clamp(output[i_val, [1, 3]], 0.0, img_dim_list[i_val, 0])
-            output[i_val, [2, 4]] = torch.clamp(output[i_val, [2, 4]], 0.0, img_dim_list[i_val, 1])
+            output[i_val, [1, 3]] = torch.clamp(
+                output[i_val, [1, 3]], 0.0, img_dim_list[i_val, 0]
+            )
+            output[i_val, [2, 4]] = torch.clamp(
+                output[i_val, [2, 4]], 0.0, img_dim_list[i_val, 1]
+            )
 
         output_recast = time.time()
         class_load = time.time()
@@ -265,6 +269,7 @@ if __name__ == "__main__":
 
         print("Summary")
         print("---------------------------------------------------------------")
+        print(f"Image: {imglist[img_id]}")
         print("{:25s}: {}".format("Task", "Time Taken (in seconds)"))
         print("{:25s}: {}".format("Reading addresses", load_batch - read_dir))
         print("{:25s}: {}".format("Loading batch", start_det_loop - load_batch))
