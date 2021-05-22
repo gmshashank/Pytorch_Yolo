@@ -119,6 +119,13 @@ if __name__ == "__main__":
         print(f"No file or directory with name {images}")
         exit()
 
+        # file_path = os.path.join(os.path.realpath("."), images)
+        # if "\\" in file_path:
+        #     print(file_path.replace('\\', '/'))
+        #     file_path = file_path.replace("\\", "/")
+        # imglist.append(file_path)
+
+    imglist = [x.replace("\\", "/") if "\\" in x else x for x in imglist]
     if not os.path.exists(args.det):
         os.makedirs(args.det)
 
@@ -216,12 +223,12 @@ if __name__ == "__main__":
         ) / 2
         output[:, 1:5] /= scaling_factor
 
-        for i in range(output.shape[0]):
-            output[i, [1, 3]] = torch.clamp(output[i, [1, 3]], 0.0, img_dim_list[i, 0])
-            output[i, [2, 4]] = torch.clamp(output[i, [2, 4]], 0.0, img_dim_list[i, 1])
+        for i_val in range(output.shape[0]):
+            output[i_val, [1, 3]] = torch.clamp(output[i_val, [1, 3]], 0.0, img_dim_list[i_val, 0])
+            output[i_val, [2, 4]] = torch.clamp(output[i_val, [2, 4]], 0.0, img_dim_list[i_val, 1])
 
         output_recast = time.time()
-        class_laod = time.time()
+        class_load = time.time()
         colors = pkl.load(open("pallete", "rb"))
 
         draw = time.time()
@@ -248,7 +255,7 @@ if __name__ == "__main__":
             )
             return img
 
-        list(map(lambda x: write(x, img_batches, orig_imgs), output))
+        list(map(lambda x: write(x, batch, orig_imgs), output))
 
         det_names = pd.Series(imglist).apply(
             lambda x: "{}/det_{}".format(args.det, x.split("/")[-1])
@@ -267,7 +274,7 @@ if __name__ == "__main__":
                 output_recast - start_det_loop,
             )
         )
-        print("{:25s}: {}".format("Output processing", class_laod - output_recast))
+        print("{:25s}: {}".format("Output processing", class_load - output_recast))
         print("{:25s}: {}".format("Drawing Boxes", end - draw))
         print(
             "{:25s}: {}".format(
