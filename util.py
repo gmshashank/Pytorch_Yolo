@@ -24,7 +24,7 @@ def bbox_iou(box1, box2):
         inter_area = torch.max(
             inter_rect_x2 - inter_rect_x1 + 1, torch.zeros(inter_rect_x2.shape)
         ) * torch.max(
-            inter_rect_y2 - inter_rect_y1 + 1, torch.zeros(inter_retc_x2.shape)
+            inter_rect_y2 - inter_rect_y1 + 1, torch.zeros(inter_rect_x2.shape)
         )
 
     b1_area = (b1_x2 - b1_x1 + 1) * (b1_y1 - b1_y1 + 1)
