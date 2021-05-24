@@ -23,15 +23,6 @@ sh <miniconda*.sh>
 ```
 
 
-## Check-out the git repository with the exercise
-
-Once Miniconda is ready, checkout the course repository and proceed with setting up the environment:
-
-```bash
-git clone https://github.com/Atcold/pytorch-Deep-Learning
-```
-
-
 ## Create isolated Miniconda environment
 
 Change directory (`cd`) into the course folder, then type:
@@ -45,7 +36,8 @@ source activate dl_vision
 
 ## Detection Example
 
-![Detection Example](https://i.imgur.com/m2jwneng.png)
+![Detection Example](https://github.com/gmshashank/Pytorch_Yolo/blob/main/det/det_eagle.jpg)
+
 ## Running the detector
 
 ### On single or multiple images
